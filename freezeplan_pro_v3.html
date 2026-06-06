@@ -1,0 +1,1291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FreezePlan Pro v3 — Multi-Zone Cold Store Design Engine</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono&family=Barlow:wght@300;400;500;600;700&display=swap');
+:root {
+  --bg:#060d1a;--bg2:#0a1628;--bg3:#0e1f38;--panel:#0d1d35;
+  --border:#1a3a5c;--accent:#00d4ff;--accent2:#00ff88;--accent3:#ff6b35;--accent4:#ffd700;
+  --warn:#ff4444;--text:#c8dff0;--text2:#7aa8cc;--text3:#4a7a9b;
+  --mono:'Share Tech Mono',monospace;--head:'Rajdhani',sans-serif;--body:'Barlow',sans-serif;
+  /* Zone colours */
+  --z-frozen:#003a7a;--z-chill:#004d6e;--z-ctrl:#1a4d00;--z-gen:#3d2800;
+  --z-ante:#2a1a4d;--z-dock-in:#00401a;--z-dock-out:#001a40;
+  --z-stage:#001a10;--z-mech:#1a0040;--z-bat:#400010;--z-blast:#001e40;
+  --z-office:#3d2800;--z-exp:rgba(255,107,53,0.08);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;overflow:hidden;}
+body{background:var(--bg);color:var(--text);font-family:var(--body);display:flex;flex-direction:column;}
+
+/* HEADER */
+header{background:linear-gradient(135deg,#060d1a,#0a1f3d);border-bottom:1px solid var(--border);
+  padding:0 20px;display:flex;align-items:center;gap:16px;height:54px;flex-shrink:0;position:relative;overflow:hidden;}
+header::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,transparent,var(--accent),var(--accent2),var(--accent3),var(--accent),transparent);
+  animation:scanline 5s linear infinite;}
+@keyframes scanline{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+.logo{font-family:var(--head);font-size:20px;font-weight:700;color:var(--accent);letter-spacing:3px;text-transform:uppercase;}
+.logo span{color:var(--accent2);}
+.logo-sub{font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:1.5px;}
+.hdr-badges{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap;}
+.badge{font-family:var(--mono);font-size:9px;padding:2px 8px;border-radius:2px;letter-spacing:1px;text-transform:uppercase;white-space:nowrap;}
+.b-frozen{background:rgba(0,100,200,0.15);border:1px solid #0066cc;color:#4daaff;}
+.b-chill{background:rgba(0,180,150,0.12);border:1px solid #00b496;color:#00e6c0;}
+.b-ctrl{background:rgba(100,200,0,0.12);border:1px solid #64c800;color:#aaff44;}
+.b-gen{background:rgba(255,200,0,0.12);border:1px solid #ffc800;color:#ffd700;}
+.b-eng{background:rgba(0,255,136,0.12);border:1px solid var(--accent2);color:var(--accent2);}
+
+/* NAV */
+.nav-tabs{background:var(--bg2);border-bottom:1px solid var(--border);display:flex;flex-shrink:0;overflow-x:auto;}
+.nav-tab{font-family:var(--head);font-size:12px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;
+  padding:9px 16px;cursor:pointer;color:var(--text3);border-bottom:2px solid transparent;
+  transition:all .2s;white-space:nowrap;background:none;border-left:none;border-right:none;border-top:none;}
+.nav-tab:hover{color:var(--text);background:rgba(0,212,255,0.05);}
+.nav-tab.active{color:var(--accent);border-bottom-color:var(--accent);background:rgba(0,212,255,0.08);}
+
+/* LAYOUT */
+.main{display:flex;flex:1;overflow:hidden;}
+
+/* SIDEBAR */
+.sidebar{width:300px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;}
+.sidebar-inner{overflow-y:auto;flex:1;padding:12px;}
+.sidebar-inner::-webkit-scrollbar{width:3px;}
+.sidebar-inner::-webkit-scrollbar-track{background:var(--bg);}
+.sidebar-inner::-webkit-scrollbar-thumb{background:var(--border);}
+
+.sec-head{font-family:var(--head);font-size:10px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;
+  color:var(--accent);padding:6px 0 5px;margin-top:12px;border-bottom:1px solid var(--border);margin-bottom:8px;}
+.sec-head:first-child{margin-top:0;}
+.sec-head.z-frozen-h{color:#4daaff;}
+.sec-head.z-chill-h{color:#00e6c0;}
+.sec-head.z-ctrl-h{color:#aaff44;}
+.sec-head.z-gen-h{color:#ffd700;}
+.sec-head.z-ante-h{color:#cc99ff;}
+
+.fg{margin-bottom:8px;}
+.fl{font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:1px;text-transform:uppercase;display:block;margin-bottom:3px;}
+.fu{font-size:8px;color:var(--text3);margin-left:3px;}
+
+input[type=number],input[type=text],select{
+  width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);
+  font-family:var(--mono);font-size:12px;padding:5px 8px;border-radius:3px;outline:none;transition:border .2s;-webkit-appearance:none;}
+input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(0,212,255,0.1);}
+select option{background:var(--bg3);}
+
+/* zone enable toggle row */
+.zone-row{display:flex;align-items:center;gap:6px;margin-bottom:6px;padding:5px 7px;
+  border:1px solid var(--border);border-radius:3px;background:var(--bg3);}
+.zone-en{width:28px;height:16px;position:relative;cursor:pointer;flex-shrink:0;}
+.zone-en input{opacity:0;width:0;height:0;}
+.zone-slider{position:absolute;inset:0;background:#1a3a5c;border-radius:8px;transition:.2s;}
+.zone-slider::before{content:'';position:absolute;left:2px;top:2px;width:12px;height:12px;border-radius:50%;background:#4a7a9b;transition:.2s;}
+.zone-en input:checked+.zone-slider{background:rgba(0,212,255,0.3);}
+.zone-en input:checked+.zone-slider::before{transform:translateX(12px);background:var(--accent);}
+.zone-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0;}
+.zone-name-label{font-family:var(--head);font-size:12px;font-weight:600;letter-spacing:1px;flex:1;}
+.zone-temp-badge{font-family:var(--mono);font-size:9px;padding:1px 6px;border-radius:2px;}
+
+/* zone config card */
+.zone-card{background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:10px;margin-bottom:10px;display:none;}
+.zone-card.visible{display:block;}
+.zone-card-header{font-family:var(--head);font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;}
+
+.tg{display:flex;gap:4px;}
+.tb{flex:1;padding:4px 2px;font-family:var(--mono);font-size:10px;background:var(--bg3);
+  border:1px solid var(--border);color:var(--text3);cursor:pointer;border-radius:2px;text-align:center;transition:all .2s;}
+.tb.active{background:rgba(0,212,255,0.15);border-color:var(--accent);color:var(--accent);}
+.tb:hover:not(.active){border-color:var(--text3);color:var(--text);}
+
+.run-btn{width:100%;padding:11px;background:linear-gradient(135deg,#003d5c,#006080);
+  border:1px solid var(--accent);color:var(--accent);font-family:var(--head);font-size:14px;
+  font-weight:700;letter-spacing:3px;text-transform:uppercase;cursor:pointer;border-radius:3px;
+  margin-top:14px;transition:all .2s;position:relative;overflow:hidden;}
+.run-btn::after{content:'';position:absolute;top:0;left:-100%;width:100%;height:100%;
+  background:linear-gradient(90deg,transparent,rgba(0,212,255,0.2),transparent);transition:left .4s;}
+.run-btn:hover{background:linear-gradient(135deg,#005070,#007da0);box-shadow:0 0 20px rgba(0,212,255,0.3);}
+.run-btn:hover::after{left:100%;}
+
+/* CONTENT */
+.content{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.tab-pane{display:none;flex:1;overflow:hidden;flex-direction:column;}
+.tab-pane.active{display:flex;}
+
+/* CANVAS */
+.canvas-wrap{flex:1;overflow:hidden;position:relative;background:var(--bg);}
+canvas{position:absolute;top:0;left:0;cursor:grab;}
+canvas:active{cursor:grabbing;}
+.cc{position:absolute;top:10px;right:10px;display:flex;flex-direction:column;gap:5px;}
+.ccb{width:32px;height:32px;background:var(--panel);border:1px solid var(--border);color:var(--text);
+  font-size:14px;cursor:pointer;border-radius:3px;display:flex;align-items:center;justify-content:center;transition:all .2s;}
+.ccb:hover{border-color:var(--accent);color:var(--accent);}
+
+/* LEGEND */
+.legend{position:absolute;bottom:10px;left:10px;background:rgba(6,13,26,0.9);border:1px solid var(--border);
+  border-radius:4px;padding:8px 12px;display:flex;flex-direction:column;gap:4px;backdrop-filter:blur(4px);max-height:60vh;overflow-y:auto;}
+.li{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:9px;color:var(--text2);}
+.lb{width:12px;height:12px;border-radius:2px;flex-shrink:0;}
+.cinfo{position:absolute;top:10px;left:10px;background:rgba(6,13,26,0.85);border:1px solid var(--border);
+  border-radius:4px;padding:6px 12px;font-family:var(--mono);font-size:10px;color:var(--text2);backdrop-filter:blur(4px);}
+
+/* RESULTS */
+.rp{flex:1;overflow-y:auto;padding:18px;}
+.rp::-webkit-scrollbar{width:4px;}
+.rp::-webkit-scrollbar-track{background:var(--bg);}
+.rp::-webkit-scrollbar-thumb{background:var(--border);}
+.kgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:18px;}
+.kcard{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:14px;position:relative;overflow:hidden;}
+.kcard::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
+.kc-blue::before{background:var(--accent);}
+.kc-green::before{background:var(--accent2);}
+.kc-orange::before{background:var(--accent3);}
+.kc-yellow::before{background:var(--accent4);}
+.kc-red::before{background:var(--warn);}
+.kc-purple::before{background:#aa66ff;}
+.kc-teal::before{background:#00e6c0;}
+.klabel{font-family:var(--mono);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:6px;}
+.kval{font-family:var(--head);font-size:26px;font-weight:700;color:var(--text);line-height:1;}
+.kval span{font-size:12px;font-weight:400;color:var(--text3);margin-left:3px;}
+.ksub{font-family:var(--mono);font-size:9px;color:var(--text3);margin-top:3px;}
+.stitle{font-family:var(--head);font-size:13px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
+  color:var(--accent);margin:18px 0 10px;padding-bottom:5px;border-bottom:1px solid var(--border);}
+.dt{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px;margin-bottom:18px;}
+.dt th{background:var(--bg3);color:var(--accent);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;
+  padding:7px 10px;text-align:left;border:1px solid var(--border);}
+.dt td{padding:6px 10px;border:1px solid var(--border);color:var(--text2);}
+.dt tr:hover td{background:rgba(0,212,255,0.03);}
+.hi{color:var(--accent2);font-weight:600;}
+.wi{color:var(--accent3);}
+.pu{color:#aa66ff;}
+.prbar{height:5px;background:var(--bg3);border-radius:3px;overflow:hidden;margin-top:5px;}
+.prfill{height:100%;border-radius:3px;transition:width 1s;}
+
+/* ZONE SUMMARY CARDS */
+.zone-sum-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-bottom:18px;}
+.zsc{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:14px;border-left:4px solid #444;}
+.zsc-name{font-family:var(--head);font-size:14px;font-weight:700;letter-spacing:2px;margin-bottom:3px;}
+.zsc-cond{font-family:var(--mono);font-size:10px;margin-bottom:10px;}
+.zsc-row{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;padding:3px 0;border-bottom:1px solid rgba(26,58,92,0.4);}
+.zsc-row:last-child{border:none;}
+.zsc-k{color:var(--text3);}
+.zsc-v{color:var(--text);}
+
+/* SCENARIOS */
+.sc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;padding:18px;}
+.scard{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:18px;transition:border .2s;}
+.scard:hover{border-color:var(--accent);}
+.scard.rec{border-color:var(--accent2);}
+.sc-badge{display:none;font-family:var(--mono);font-size:9px;background:rgba(0,255,136,0.15);
+  border:1px solid var(--accent2);color:var(--accent2);padding:2px 8px;border-radius:2px;margin-bottom:8px;letter-spacing:1px;}
+.scard.rec .sc-badge{display:inline-block;}
+.sc-nm{font-family:var(--head);font-size:17px;font-weight:700;letter-spacing:2px;margin-bottom:3px;}
+.sc-tg{font-family:var(--mono);font-size:9px;color:var(--text3);margin-bottom:14px;}
+.sc-m{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(26,58,92,0.4);font-family:var(--mono);font-size:10px;}
+.sc-mk{color:var(--text3);}
+.sc-mv{color:var(--text);}
+.sc-mv.g{color:var(--accent2);}
+.sc-mv.w{color:var(--accent3);}
+
+/* REPORT */
+.repwrap{flex:1;overflow-y:auto;padding:28px;max-width:880px;margin:0 auto;width:100%;}
+.rh1{font-family:var(--head);font-size:26px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--accent);margin-bottom:3px;}
+.rh2{font-family:var(--head);font-size:14px;font-weight:600;letter-spacing:2px;text-transform:uppercase;
+  color:var(--accent2);margin:22px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--border);}
+.rp2{font-size:12px;line-height:1.7;color:var(--text2);margin-bottom:10px;}
+.rmeta{font-family:var(--mono);font-size:10px;color:var(--text3);margin-bottom:22px;}
+.ebtns{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;}
+.ebtn{padding:7px 16px;font-family:var(--head);font-size:11px;font-weight:600;letter-spacing:2px;text-transform:uppercase;
+  cursor:pointer;border-radius:3px;transition:all .2s;background:var(--bg3);border:1px solid var(--border);color:var(--text2);}
+.ebtn:hover{border-color:var(--accent);color:var(--accent);background:rgba(0,212,255,0.08);}
+
+/* ANTE-ROOM config */
+.ante-list{display:flex;flex-direction:column;gap:4px;margin-bottom:8px;}
+.ante-item{display:flex;align-items:center;gap:6px;padding:4px 7px;background:rgba(42,26,77,0.4);border:1px solid rgba(150,100,255,0.2);border-radius:3px;}
+.ante-item label{font-family:var(--mono);font-size:10px;color:#cc99ff;flex:1;}
+.ante-item input{width:60px;font-size:10px;padding:3px 5px;}
+
+/* PLACEHOLDER */
+.ph{flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;color:var(--text3);}
+.ph-icon{font-size:56px;opacity:.25;}
+.ph-text{font-family:var(--head);font-size:15px;letter-spacing:2px;text-transform:uppercase;}
+.ph-sub{font-family:var(--mono);font-size:10px;letter-spacing:1px;}
+
+/* LOADING */
+.lov{position:fixed;inset:0;background:rgba(6,13,26,0.93);display:flex;align-items:center;justify-content:center;z-index:1000;display:none;}
+.lsp{width:52px;height:52px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 16px;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.ltxt{font-family:var(--head);font-size:16px;font-weight:600;letter-spacing:3px;color:var(--accent);}
+.lsub{font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:5px;}
+
+/* TOOLTIP */
+#tt{position:fixed;background:var(--panel);border:1px solid var(--accent);border-radius:4px;padding:7px 12px;
+  font-family:var(--mono);font-size:10px;color:var(--text);pointer-events:none;z-index:9999;display:none;backdrop-filter:blur(4px);}
+
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:var(--bg);}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo">Freeze<span>Plan</span> Pro</div>
+    <div class="logo-sub">MULTI-ZONE COLD STORE DESIGN ENGINE v3.0</div>
+  </div>
+  <div class="hdr-badges" id="hdr-badges">
+    <span class="badge b-frozen">FROZEN −25°C</span>
+    <span class="badge b-chill">CHILL +2°C</span>
+    <span class="badge b-ctrl">CTRL AMB +15°C</span>
+    <span class="badge b-gen">GENERAL +18°C</span>
+    <span class="badge b-eng">ISO 9001</span>
+  </div>
+</header>
+
+<div class="nav-tabs">
+  <button class="nav-tab active" onclick="switchTab('layout2d',this)">📐 2D Layout</button>
+  <button class="nav-tab" onclick="switchTab('layout3d',this)">🧊 3D View</button>
+  <button class="nav-tab" onclick="switchTab('results',this)">📊 KPI Dashboard</button>
+  <button class="nav-tab" onclick="switchTab('scenarios',this)">🔀 Scenarios</button>
+  <button class="nav-tab" onclick="switchTab('report',this)">📋 Report</button>
+</div>
+
+<div class="main">
+
+<!-- ══ SIDEBAR ══ -->
+<div class="sidebar">
+<div class="sidebar-inner">
+
+  <div class="sec-head">🏗 Building Geometry</div>
+  <div class="fg"><label class="fl">Total Floor Area <span class="fu">m²</span></label><input type="number" id="i_area" value="8590" min="500" max="200000"></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+    <div class="fg"><label class="fl">Length <span class="fu">m</span></label><input type="number" id="i_length" value="110" min="20" max="600"></div>
+    <div class="fg"><label class="fl">Width <span class="fu">m</span></label><input type="number" id="i_width" value="78" min="20" max="400"></div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+    <div class="fg"><label class="fl">Clear Height <span class="fu">m</span></label><input type="number" id="i_height" value="12" min="6" max="30"></div>
+    <div class="fg"><label class="fl">Column Grid <span class="fu">m</span></label>
+      <select id="i_grid"><option value="10.8">10.8×10.8</option><option value="12" selected>12×12</option><option value="24">24×24</option></select></div>
+  </div>
+  <div class="fg"><label class="fl">Dock Location</label>
+    <select id="i_dockloc"><option value="end">End Wall</option><option value="side">Side Wall</option><option value="both" selected>Both Walls</option></select></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+    <div class="fg"><label class="fl">Office/Util <span class="fu">%</span></label><input type="number" id="i_office" value="5" min="2" max="20"></div>
+    <div class="fg"><label class="fl">Expansion Res <span class="fu">%</span></label><input type="number" id="i_expansion" value="8" min="0" max="30"></div>
+  </div>
+
+  <div class="sec-head">⚙ Operation</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+    <div class="fg"><label class="fl">Op Hours <span class="fu">hr/d</span></label><input type="number" id="i_ophours" value="16" min="8" max="24"></div>
+    <div class="fg"><label class="fl">Shifts/Day</label>
+      <select id="i_shifts"><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option></select></div>
+  </div>
+  <div class="fg"><label class="fl">Pallet Size <span class="fu">mm L×W×H</span></label>
+    <select id="i_palsize">
+      <option value="1200x1000x2000" selected>1200×1000×2000 (Euro Heavy)</option>
+      <option value="1200x800x2000">1200×800×2000 (Euro Std)</option>
+      <option value="1219x1016x2000">48"×40"×79" (CHEP US)</option>
+      <option value="1100x1100x2000">1100×1100×2000 (AU Std)</option>
+    </select></div>
+  <div class="fg"><label class="fl">Max Pallet Load <span class="fu">kg</span></label><input type="number" id="i_pweight" value="1000" min="200" max="2500"></div>
+  <div class="fg"><label class="fl">Inbound Pallets/Day</label><input type="number" id="i_inpd" value="350" min="10" max="5000"></div>
+  <div class="fg"><label class="fl">Outbound Pallets/Day</label><input type="number" id="i_outpd" value="330" min="10" max="5000"></div>
+  <div class="fg"><label class="fl">Trucks/Day (In+Out)</label><input type="number" id="i_trucks" value="28" min="2" max="200"></div>
+
+  <!-- ══ ZONE CONFIG ══ -->
+  <div class="sec-head z-frozen-h">❄ ZONE 1 — FROZEN STORAGE</div>
+  <div class="zone-card visible" id="zc-frozen" style="border-color:#0066cc">
+    <div class="zone-card-header" style="color:#4daaff">❄ FROZEN</div>
+    <div class="fg"><label class="fl">Target Temp <span class="fu">°C</span></label>
+      <select id="z_frozen_temp"><option value="-30">−30°C (Ultra Deep)</option><option value="-25" selected>−25°C (Deep Frozen)</option><option value="-18">−18°C (Frozen)</option></select></div>
+    <div class="fg"><label class="fl">Target Humidity <span class="fu">% RH</span></label><input type="number" id="z_frozen_rh" value="85" min="50" max="95"></div>
+    <div class="fg"><label class="fl">Required Pallets</label><input type="number" id="z_frozen_pals" value="4930" min="0" max="50000"></div>
+    <div class="fg"><label class="fl">Inventory Days</label><input type="number" id="z_frozen_inv" value="14" min="1" max="90"></div>
+    <div class="fg"><label class="fl">Racking System</label>
+      <select id="z_frozen_rack">
+        <option value="selective">Selective Pallet</option>
+        <option value="doubledeep">Double-Deep</option>
+        <option value="drivein">Drive-In</option>
+        <option value="shuttle" selected>Shuttle Racking</option>
+        <option value="vna">VNA Narrow Aisle</option>
+        <option value="asrs">ASRS Crane</option>
+      </select></div>
+    <div class="fg"><label class="fl">Strategy</label>
+      <div class="tg">
+        <button class="tb" id="fs_FIFO" onclick="setStr('frozen','FIFO')">FIFO</button>
+        <button class="tb active" id="fs_FEFO" onclick="setStr('frozen','FEFO')">FEFO</button>
+        <button class="tb" id="fs_LIFO" onclick="setStr('frozen','LIFO')">LIFO</button>
+      </div></div>
+    <div class="fg"><label class="fl">Blast Freeze Cell</label>
+      <div class="tg">
+        <button class="tb" id="zf_blast_yes" onclick="setTog('zf_blast','yes')">Yes</button>
+        <button class="tb active" id="zf_blast_no" onclick="setTog('zf_blast','no')">No</button>
+      </div></div>
+    <div class="fg"><label class="fl">Ante-Room</label>
+      <div class="tg">
+        <button class="tb active" id="zf_ante_yes" onclick="setTog('zf_ante','yes')">Yes</button>
+        <button class="tb" id="zf_ante_no" onclick="setTog('zf_ante','no')">No</button>
+      </div></div>
+    <div class="fg" id="zf_ante_temp_wrap"><label class="fl">Ante-Room Temp <span class="fu">°C</span></label><input type="number" id="z_frozen_ante_temp" value="-5" min="-20" max="10"></div>
+    <div class="fg" id="zf_ante_rh_wrap"><label class="fl">Ante-Room RH <span class="fu">%</span></label><input type="number" id="z_frozen_ante_rh" value="70" min="30" max="95"></div>
+  </div>
+
+  <div class="sec-head z-chill-h">🌡 ZONE 2 — CHILL STORAGE</div>
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+    <label class="zone-en"><input type="checkbox" id="en_chill" checked onchange="toggleZone('chill')"><span class="zone-slider"></span></label>
+    <span style="font-family:var(--mono);font-size:10px;color:#00e6c0">Enable Chill Zone</span>
+  </div>
+  <div class="zone-card visible" id="zc-chill" style="border-color:#00b496">
+    <div class="zone-card-header" style="color:#00e6c0">🌡 CHILL</div>
+    <div class="fg"><label class="fl">Target Temp <span class="fu">°C</span></label>
+      <select id="z_chill_temp"><option value="0">0°C</option><option value="2" selected>+2°C</option><option value="4">+4°C</option><option value="8">+8°C</option></select></div>
+    <div class="fg"><label class="fl">Target Humidity <span class="fu">% RH</span></label><input type="number" id="z_chill_rh" value="90" min="50" max="98"></div>
+    <div class="fg"><label class="fl">Required Pallets</label><input type="number" id="z_chill_pals" value="935" min="0" max="20000"></div>
+    <div class="fg"><label class="fl">Inventory Days</label><input type="number" id="z_chill_inv" value="5" min="1" max="60"></div>
+    <div class="fg"><label class="fl">Racking System</label>
+      <select id="z_chill_rack">
+        <option value="selective" selected>Selective Pallet</option>
+        <option value="doubledeep">Double-Deep</option>
+        <option value="pflow">Pallet Flow</option>
+        <option value="vna">VNA</option>
+      </select></div>
+    <div class="fg"><label class="fl">Strategy</label>
+      <div class="tg">
+        <button class="tb" id="cs_FIFO" onclick="setStr('chill','FIFO')">FIFO</button>
+        <button class="tb active" id="cs_FEFO" onclick="setStr('chill','FEFO')">FEFO</button>
+        <button class="tb" id="cs_LIFO" onclick="setStr('chill','LIFO')">LIFO</button>
+      </div></div>
+    <div class="fg"><label class="fl">Ante-Room</label>
+      <div class="tg">
+        <button class="tb active" id="zc_ante_yes" onclick="setTog('zc_ante','yes')">Yes</button>
+        <button class="tb" id="zc_ante_no" onclick="setTog('zc_ante','no')">No</button>
+      </div></div>
+    <div class="fg" id="zc_ante_temp_wrap"><label class="fl">Ante-Room Temp <span class="fu">°C</span></label><input type="number" id="z_chill_ante_temp" value="8" min="-5" max="18"></div>
+    <div class="fg" id="zc_ante_rh_wrap"><label class="fl">Ante-Room RH <span class="fu">%</span></label><input type="number" id="z_chill_ante_rh" value="80" min="30" max="95"></div>
+  </div>
+
+  <div class="sec-head z-ctrl-h">🌿 ZONE 3 — CONTROLLED AMBIENT</div>
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+    <label class="zone-en"><input type="checkbox" id="en_ctrl" checked onchange="toggleZone('ctrl')"><span class="zone-slider"></span></label>
+    <span style="font-family:var(--mono);font-size:10px;color:#aaff44">Enable Controlled Ambient Zone</span>
+  </div>
+  <div class="zone-card visible" id="zc-ctrl" style="border-color:#55aa00">
+    <div class="zone-card-header" style="color:#aaff44">🌿 CONTROLLED AMBIENT</div>
+    <div class="fg"><label class="fl">Target Temp <span class="fu">°C</span></label>
+      <select id="z_ctrl_temp"><option value="10">+10°C</option><option value="15" selected>+15°C</option><option value="18">+18°C</option><option value="20">+20°C</option></select></div>
+    <div class="fg"><label class="fl">Target Humidity <span class="fu">% RH</span></label><input type="number" id="z_ctrl_rh" value="60" min="30" max="85"></div>
+    <div class="fg"><label class="fl">Required Pallets</label><input type="number" id="z_ctrl_pals" value="1020" min="0" max="20000"></div>
+    <div class="fg"><label class="fl">Inventory Days</label><input type="number" id="z_ctrl_inv" value="7" min="1" max="60"></div>
+    <div class="fg"><label class="fl">Racking System</label>
+      <select id="z_ctrl_rack">
+        <option value="selective" selected>Selective Pallet</option>
+        <option value="doubledeep">Double-Deep</option>
+        <option value="vna">VNA</option>
+      </select></div>
+    <div class="fg"><label class="fl">Humidity Control</label>
+      <div class="tg">
+        <button class="tb active" id="zca_hum_yes" onclick="setTog('zca_hum','yes')">Active</button>
+        <button class="tb" id="zca_hum_no" onclick="setTog('zca_hum','no')">Passive</button>
+      </div></div>
+    <div class="fg"><label class="fl">Ante-Room</label>
+      <div class="tg">
+        <button class="tb" id="zca_ante_yes" onclick="setTog('zca_ante','yes')">Yes</button>
+        <button class="tb active" id="zca_ante_no" onclick="setTog('zca_ante','no')">No</button>
+      </div></div>
+  </div>
+
+  <div class="sec-head z-gen-h">📦 ZONE 4 — GENERAL AMBIENT</div>
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+    <label class="zone-en"><input type="checkbox" id="en_gen" checked onchange="toggleZone('gen')"><span class="zone-slider"></span></label>
+    <span style="font-family:var(--mono);font-size:10px;color:#ffd700">Enable General Ambient Zone</span>
+  </div>
+  <div class="zone-card visible" id="zc-gen" style="border-color:#806000">
+    <div class="zone-card-header" style="color:#ffd700">📦 GENERAL AMBIENT</div>
+    <div class="fg"><label class="fl">Target Temp <span class="fu">°C</span></label>
+      <select id="z_gen_temp"><option value="15">+15°C</option><option value="18" selected>+18°C</option><option value="25">+25°C</option></select></div>
+    <div class="fg"><label class="fl">Max Humidity <span class="fu">% RH</span></label><input type="number" id="z_gen_rh" value="65" min="30" max="85"></div>
+    <div class="fg"><label class="fl">Required Pallets</label><input type="number" id="z_gen_pals" value="1700" min="0" max="30000"></div>
+    <div class="fg"><label class="fl">Inventory Days</label><input type="number" id="z_gen_inv" value="10" min="1" max="90"></div>
+    <div class="fg"><label class="fl">Racking System</label>
+      <select id="z_gen_rack">
+        <option value="selective" selected>Selective Pallet</option>
+        <option value="doubledeep">Double-Deep</option>
+        <option value="drivein">Drive-In</option>
+        <option value="vna">VNA</option>
+      </select></div>
+  </div>
+
+  <div class="sec-head z-ante-h">🚪 SHARED INFRASTRUCTURE</div>
+  <div class="fg"><label class="fl">Cross-Dock % <span class="fu">of total flow</span></label><input type="number" id="i_xdock" value="10" min="0" max="60"></div>
+  <div class="fg"><label class="fl">Ambient Receiving Area</label>
+    <div class="tg">
+      <button class="tb active" id="am_rec_yes" onclick="setTog('am_rec','yes')">Yes</button>
+      <button class="tb" id="am_rec_no" onclick="setTog('am_rec','no')">No</button>
+    </div></div>
+  <div class="fg"><label class="fl">Mezzanine (Office)</label>
+    <div class="tg">
+      <button class="tb" id="mez_yes" onclick="setTog('mez','yes')">Yes</button>
+      <button class="tb active" id="mez_no" onclick="setTog('mez','no')">No</button>
+    </div></div>
+
+  <button class="run-btn" onclick="runDesign()">▶ GENERATE DESIGN</button>
+</div><!-- /sidebar-inner -->
+</div><!-- /sidebar -->
+
+<!-- ══ CONTENT ══ -->
+<div class="content">
+
+  <!-- 2D -->
+  <div id="tab-layout2d" class="tab-pane active">
+    <div class="canvas-wrap" id="wrap2d">
+      <canvas id="canvas2d"></canvas>
+      <div class="cc">
+        <button class="ccb" onclick="zoom2d(1.2)">+</button>
+        <button class="ccb" onclick="zoom2d(0.8)">−</button>
+        <button class="ccb" onclick="fit2d()" title="Fit">⊡</button>
+        <button class="ccb" onclick="export2dPNG()" title="Save PNG">💾</button>
+      </div>
+      <div class="cinfo" id="info2d">Configure parameters → click GENERATE DESIGN</div>
+      <div class="legend" id="leg2d" style="display:none"></div>
+    </div>
+  </div>
+
+  <!-- 3D -->
+  <div id="tab-layout3d" class="tab-pane">
+    <div class="canvas-wrap" id="wrap3d">
+      <canvas id="canvas3d"></canvas>
+      <div class="cc">
+        <button class="ccb" onclick="r3(-15,0)">◁</button>
+        <button class="ccb" onclick="r3(15,0)">▷</button>
+        <button class="ccb" onclick="r3(0,-10)">△</button>
+        <button class="ccb" onclick="r3(0,10)">▽</button>
+        <button class="ccb" onclick="z3(1.1)">+</button>
+        <button class="ccb" onclick="z3(0.9)">−</button>
+        <button class="ccb" onclick="rst3()">↺</button>
+        <button class="ccb" onclick="tog3anim()" id="b3a">▶</button>
+      </div>
+      <div class="cinfo" id="info3d">Generate design first | Drag to rotate</div>
+    </div>
+  </div>
+
+  <!-- KPI -->
+  <div id="tab-results" class="tab-pane">
+    <div class="rp" id="res-content">
+      <div class="ph"><div class="ph-icon">📊</div><div class="ph-text">No Data Yet</div><div class="ph-sub">Run the design engine first</div></div>
+    </div>
+  </div>
+
+  <!-- SCENARIOS -->
+  <div id="tab-scenarios" class="tab-pane">
+    <div style="flex:1;overflow-y:auto" id="sc-content">
+      <div class="ph"><div class="ph-icon">🔀</div><div class="ph-text">No Scenarios</div><div class="ph-sub">Run the design engine first</div></div>
+    </div>
+  </div>
+
+  <!-- REPORT -->
+  <div id="tab-report" class="tab-pane">
+    <div class="repwrap" id="rep-content">
+      <div class="ph"><div class="ph-icon">📋</div><div class="ph-text">No Report</div><div class="ph-sub">Run the design engine first</div></div>
+    </div>
+  </div>
+
+</div><!-- /content -->
+</div><!-- /main -->
+
+<div id="tt"></div>
+<div class="lov" id="loading"><div style="text-align:center"><div class="lsp"></div><div class="ltxt">COMPUTING DESIGN</div><div class="lsub" id="lsub">Initialising...</div></div></div>
+
+<script>
+// ═══════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════
+let D = {};
+let togs = { mez:'no', blast:'no', zf_blast:'no', zf_ante:'yes', zc_ante:'yes', zca_ante:'no', zca_hum:'yes', am_rec:'yes' };
+let strs = { frozen:'FEFO', chill:'FEFO' };
+let zones_enabled = { chill:true, ctrl:true, gen:true };
+let cam2 = { sc:1, ox:0, oy:0, drag:false, lx:0, ly:0 };
+let cam3 = { rx:22, ry:-38, sc:1, drag:false, lx:0, ly:0 };
+let anim3=false, atimer=null;
+let c2, x2, c3, x3;
+
+function setTog(k, v) {
+  togs[k]=v;
+  const yb=document.getElementById(k+'_yes'), nb=document.getElementById(k+'_no');
+  if(yb) yb.classList.toggle('active', v==='yes');
+  if(nb) nb.classList.toggle('active', v==='no');
+  // show/hide ante sub-fields
+  if(k==='zf_ante') { ['zf_ante_temp_wrap','zf_ante_rh_wrap'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display=v==='yes'?'block':'none'; }); }
+  if(k==='zc_ante') { ['zc_ante_temp_wrap','zc_ante_rh_wrap'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display=v==='yes'?'block':'none'; }); }
+}
+function setStr(zone, val) {
+  strs[zone]=val;
+  ['FIFO','FEFO','LIFO'].forEach(v=>{ const el=document.getElementById((zone==='frozen'?'fs_':'cs_')+v); if(el) el.classList.toggle('active',v===val); });
+}
+function toggleZone(z) {
+  zones_enabled[z] = document.getElementById('en_'+z).checked;
+  const card=document.getElementById('zc-'+z);
+  if(card) card.classList.toggle('visible', zones_enabled[z]);
+}
+function switchTab(name, btn) {
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  document.getElementById('tab-'+name).classList.add('active');
+  if(name==='layout2d' && D.zones) { setTimeout(()=>{draw2d();fit2d();},60); }
+  if(name==='layout3d' && D.zones) { setTimeout(()=>{initC3();draw3d();},60); }
+}
+function switchTabDirect(name) {
+  const tabs=['layout2d','layout3d','results','scenarios','report'];
+  document.querySelectorAll('.nav-tab').forEach((t,i)=>t.classList.toggle('active',tabs[i]===name));
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+}
+function gn(id) { return parseFloat(document.getElementById(id)?.value)||0; }
+function gs(id) { return document.getElementById(id)?.value||''; }
+
+// ═══════════════════════════════════════════════
+//  RACK CONFIGS
+// ═══════════════════════════════════════════════
+const RACKS = {
+  selective:  {aw:3.5, util:.45, sel:1.0, den:45, name:'Selective Pallet'},
+  doubledeep: {aw:3.8, util:.55, sel:.5,  den:55, name:'Double-Deep'},
+  drivein:    {aw:1.5, util:.75, sel:.25, den:75, name:'Drive-In'},
+  shuttle:    {aw:3.0, util:.80, sel:.6,  den:80, name:'Shuttle'},
+  vna:        {aw:1.8, util:.70, sel:1.0, den:70, name:'VNA Narrow Aisle'},
+  asrs:       {aw:1.4, util:.85, sel:1.0, den:85, name:'ASRS Crane'},
+  pflow:      {aw:3.5, util:.72, sel:.8,  den:72, name:'Pallet Flow'},
+};
+
+// ═══════════════════════════════════════════════
+//  COMPUTE ENGINE
+// ═══════════════════════════════════════════════
+function runDesign() {
+  document.getElementById('loading').style.display='flex';
+  const msgs=['Parsing zone requirements...','Computing area allocations...','Sizing racking per zone...','Calculating ante-rooms...','Sizing MHE fleet...','Estimating refrigeration loads...','Generating 2D layout...','Building 3D model...','Compiling KPI dashboard...'];
+  let i=0;
+  const iv=setInterval(()=>{
+    if(i<msgs.length){ document.getElementById('lsub').textContent=msgs[i]; i++; }
+    else { clearInterval(iv); compute(); document.getElementById('loading').style.display='none'; switchTabDirect('layout2d'); setTimeout(()=>{draw2d();fit2d();},80); }
+  },220);
+}
+
+function palletFootprint(palsize) {
+  const [l,w] = palsize.split('x').map(Number);
+  return ((l/1000)+0.075)*((w/1000)+0.1);
+}
+function palletH(palsize) { return parseInt(palsize.split('x')[2])/1000; }
+
+function zoneCalc(key, pals, rackKey, heightClear, palsize) {
+  const rc = RACKS[rackKey]||RACKS.selective;
+  const ph = palletH(palsize)+0.15;
+  const levels = Math.max(1, Math.floor((heightClear-1.5)/ph));
+  const footprint = palletFootprint(palsize);
+  // Area needed for required pallet positions
+  const rawArea = (pals / levels / rc.util) * footprint;
+  const rackH = levels * ph + 0.4;
+  return { rc, levels, rackH, rawArea, footprint, areaPerPallet: rawArea/pals };
+}
+
+function compute() {
+  const L=gn('i_length'), W=gn('i_width'), H=gn('i_height');
+  const totalArea=L*W;
+  document.getElementById('i_area').value=totalArea;
+  const palsize=gs('i_palsize'), pweight=gn('i_pweight');
+  const opHrs=gn('i_ophours');
+  const expPct=gn('i_expansion')/100, offPct=gn('i_office')/100;
+  const inpd=gn('i_inpd'), outpd=gn('i_outpd'), trucks=gn('i_trucks');
+
+  // Zone pallet counts
+  const frozenPals=gn('z_frozen_pals');
+  const chillPals=zones_enabled.chill?gn('z_chill_pals'):0;
+  const ctrlPals=zones_enabled.ctrl?gn('z_ctrl_pals'):0;
+  const genPals=zones_enabled.gen?gn('z_gen_pals'):0;
+  const totalPals=frozenPals+chillPals+ctrlPals+genPals;
+
+  // Per-zone racking calcs
+  const fz=zoneCalc('frozen',frozenPals,gs('z_frozen_rack'),H,palsize);
+  const cz=zoneCalc('chill',chillPals,gs('z_chill_rack'),H,palsize);
+  const tz=zoneCalc('ctrl',ctrlPals,gs('z_ctrl_rack'),H,palsize);
+  const gz=zoneCalc('gen',genPals,gs('z_gen_rack'),Math.min(H,8),palsize);
+
+  // Ante-room areas (width 4m per linear metre of zone face)
+  const anteW=4; // metres deep
+  const frozenAnteArea=togs.zf_ante==='yes'?Math.sqrt(fz.rawArea)*anteW:0;
+  const chillAnteArea=zones_enabled.chill&&togs.zc_ante==='yes'?Math.sqrt(cz.rawArea)*anteW:0;
+  const ctrlAnteArea=zones_enabled.ctrl&&togs.zca_ante==='yes'?Math.sqrt(tz.rawArea)*anteW:0;
+
+  const officeArea=totalArea*offPct;
+  const mechArea=totalArea*0.04;
+  const battArea=totalArea*0.02;
+  const dockArea=totalArea*0.09;
+  const stagArea=totalArea*0.07;
+  const blastArea=togs.zf_blast==='yes'?totalArea*0.05:0;
+  const expArea=totalArea*expPct;
+  const anteTotal=frozenAnteArea+chillAnteArea+ctrlAnteArea;
+  const supportArea=officeArea+mechArea+battArea+dockArea+stagArea+blastArea+anteTotal;
+  const storageArea=totalArea-supportArea-expArea;
+
+  // Proportion storage area among zones by required area
+  const totalRawStore=fz.rawArea+cz.rawArea+tz.rawArea+gz.rawArea;
+  const scaleFactor=storageArea/totalRawStore;
+  const frozenArea=fz.rawArea*scaleFactor;
+  const chillArea=zones_enabled.chill?cz.rawArea*scaleFactor:0;
+  const ctrlArea=zones_enabled.ctrl?tz.rawArea*scaleFactor:0;
+  const genArea=zones_enabled.gen?gz.rawArea*scaleFactor:0;
+
+  // Refine net pallet positions based on scaled area
+  const frozenNet=Math.round(frozenPals*scaleFactor);
+  const chillNet=zones_enabled.chill?Math.round(chillPals*scaleFactor):0;
+  const ctrlNet=zones_enabled.ctrl?Math.round(ctrlPals*scaleFactor):0;
+  const genNet=zones_enabled.gen?Math.round(genPals*scaleFactor):0;
+  const totalNet=frozenNet+chillNet+ctrlNet+genNet;
+
+  // Docks
+  const peakFlowIn=inpd/opHrs*2.5, peakFlowOut=outpd/opHrs*2.5;
+  const inDocks=Math.max(2,Math.ceil(peakFlowIn/18)+1);
+  const outDocks=Math.max(2,Math.ceil(peakFlowOut/18)+1);
+  const totalDocks=inDocks+outDocks;
+
+  // MHE: fleet for each zone environment
+  const totalMoves=inpd+outpd;
+  const freezerRT=Math.max(2,Math.ceil(peakFlowIn*0.6/12));
+  const chillRT=zones_enabled.chill?Math.max(1,Math.ceil(chillPals/500)):0;
+  const dockCB=Math.max(1,Math.ceil(totalDocks/3));
+  const palJacks=Math.max(2,Math.ceil(totalDocks/2));
+  const totalMHE=freezerRT+chillRT+dockCB+palJacks;
+  const chargers=Math.ceil(totalMHE*1.2);
+
+  // Refrigeration per zone
+  const refFrozen=frozenArea*0.028+(frozenAnteArea>0?frozenAnteArea*0.015:0);
+  const refChill=zones_enabled.chill?chillArea*0.018+(chillAnteArea>0?chillAnteArea*0.010:0):0;
+  const refCtrl=zones_enabled.ctrl?ctrlArea*0.008:0;
+  const refInfilt=totalDocks*7;
+  const refMHE=(freezerRT+chillRT)*5;
+  const refLight=(frozenArea+chillArea)*0.012+(ctrlArea+genArea)*0.008;
+  const totalRef=Math.round(refFrozen+refChill+refCtrl+refInfilt+refMHE+refLight);
+  const annualKWh=Math.round(totalRef*8760*0.72);
+  const energyInt=((totalRef*8760*0.72)/(totalArea*H)).toFixed(2);
+
+  // Humidity systems
+  const humCtrl=zones_enabled.ctrl&&togs.zca_hum==='yes';
+
+  // CAPEX
+  const rackCapex=Math.round((frozenNet*200)+(chillNet*160)+(ctrlNet*130)+(genNet*110));
+  const mheCapex=Math.round(freezerRT*90000+chillRT*75000+dockCB*65000+palJacks*9000);
+  const refCapex=Math.round(totalRef*2400);
+  const civilCapex=Math.round(totalArea*900);
+  const anteCapex=Math.round(anteTotal*1200);
+  const humCapex=humCtrl?Math.round(ctrlArea*80):0;
+  const totalCapex=rackCapex+mheCapex+refCapex+civilCapex+anteCapex+humCapex;
+  const annualOpex=Math.round(annualKWh*0.115+totalCapex*0.04);
+
+  D={
+    inputs:{L,W,H,palsize,pweight,opHrs,inpd,outpd,trucks,expPct,offPct,totalArea},
+    zones_enabled,
+    zone:{
+      frozen:{key:'frozen',name:'FROZEN STORAGE',pallets:frozenPals,net:frozenNet,area:frozenArea,
+        temp:gn('z_frozen_temp'),rh:gn('z_frozen_rh'),rack:gs('z_frozen_rack'),
+        rc:fz.rc,levels:fz.levels,rackH:fz.rackH,strategy:strs.frozen,
+        anteEnabled:togs.zf_ante==='yes',anteTemp:gn('z_frozen_ante_temp'),anteRh:gn('z_frozen_ante_rh'),anteArea:frozenAnteArea,
+        blastEnabled:togs.zf_blast==='yes',blastArea,
+        color:'#0a1e50',border:'#0066cc',accent:'#4daaff',lc:'#003080',tc:'#1a3a7a'},
+      chill:{key:'chill',name:'CHILL STORAGE',pallets:chillPals,net:chillNet,area:chillArea,
+        temp:gn('z_chill_temp'),rh:gn('z_chill_rh'),rack:gs('z_chill_rack'),
+        rc:cz.rc,levels:cz.levels,rackH:cz.rackH,strategy:strs.chill,
+        anteEnabled:zones_enabled.chill&&togs.zc_ante==='yes',anteTemp:gn('z_chill_ante_temp'),anteRh:gn('z_chill_ante_rh'),anteArea:chillAnteArea,
+        color:'#002840',border:'#009477',accent:'#00e6c0',lc:'#001830',tc:'#003850'},
+      ctrl:{key:'ctrl',name:'CONTROLLED AMBIENT',pallets:ctrlPals,net:ctrlNet,area:ctrlArea,
+        temp:gn('z_ctrl_temp'),rh:gn('z_ctrl_rh'),rack:gs('z_ctrl_rack'),
+        rc:tz.rc,levels:tz.levels,rackH:tz.rackH,strategy:'FIFO',
+        anteEnabled:zones_enabled.ctrl&&togs.zca_ante==='yes',anteArea:ctrlAnteArea,
+        humActive:humCtrl,
+        color:'#0a2000',border:'#44aa00',accent:'#aaff44',lc:'#061400',tc:'#142800'},
+      gen:{key:'gen',name:'GENERAL AMBIENT',pallets:genPals,net:genNet,area:genArea,
+        temp:gn('z_gen_temp'),rh:gn('z_gen_rh'),rack:gs('z_gen_rack'),
+        rc:gz.rc,levels:gz.levels,rackH:gz.rackH,strategy:'FIFO',
+        anteEnabled:false,anteArea:0,
+        color:'#281800',border:'#aa8000',accent:'#ffd700',lc:'#180e00',tc:'#3a2200'},
+    },
+    support:{ officeArea,mechArea,battArea,dockArea,stagArea,blastArea,anteTotal,expArea,storageArea },
+    docks:{ inDocks,outDocks,totalDocks },
+    mhe:{ freezerRT,chillRT,dockCB,palJacks,totalMHE,chargers },
+    ref:{ totalRef,annualKWh,energyInt,refFrozen,refChill,refCtrl,refInfilt,refMHE,refLight },
+    capex:{ rackCapex,mheCapex,refCapex,civilCapex,anteCapex,humCapex,totalCapex,annualOpex },
+    totals:{ totalPals,totalNet,totalArea,scaleFactor }
+  };
+
+  D.zones=buildZones(D);
+  renderResults();
+  renderScenarios();
+  renderReport();
+  updateBadges();
+}
+
+// ═══════════════════════════════════════════════
+//  BUILD ZONE GEOMETRY FOR 2D
+// ═══════════════════════════════════════════════
+function buildZones(D) {
+  const {L,W}=D.inputs;
+  const z=[];
+  const s=D.support;
+  const en=D.zones_enabled;
+
+  // Layout strategy: top strip = docks, left strip = support, then zones tiled
+  const dockD=12, stageD=10;
+  const offW=Math.max(8,Math.round(L*D.inputs.offPct*2.5));
+  const mechH=Math.round(W*0.16), battH=Math.round(W*0.10);
+  const blastH=D.zone.frozen.blastEnabled?Math.round(W*0.12):0;
+
+  // Support zones (left column)
+  z.push({n:'OFFICE / ADMIN',x:0,y:0,w:offW,h:W,color:'#28180a',border:'#806030',tc:'#ffd700',icon:'🏢'});
+  z.push({n:'MECH. PLANT',x:offW,y:0,w:8,h:mechH,color:'#1a0040',border:'#7030c0',tc:'#aa80ff',icon:'⚙'});
+  z.push({n:'BATTERY / MHE',x:offW,y:mechH,w:8,h:battH,color:'#3a0010',border:'#c02050',tc:'#ff6090',icon:'🔋'});
+  if(D.zone.frozen.blastEnabled){z.push({n:'BLAST FREEZE',x:offW,y:mechH+battH,w:8,h:blastH,color:'#001a40',border:'#0070ff',tc:'#44aaff',icon:'❄'});}
+
+  const mainX=offW+8;
+  const mainW=L-mainX;
+
+  // Dock rows (top)
+  const dockY=0, stY=dockD;
+  z.push({n:'INBOUND DOCKS',x:mainX,y:dockY,w:Math.round(mainW*0.5),h:dockD,color:'#003318',border:'#00aa55',tc:'#00ff88',icon:'🚛'});
+  z.push({n:'STAGING IN',x:mainX,y:stY,w:Math.round(mainW*0.5),h:stageD,color:'#001a0c',border:'#005530',tc:'#00cc66',icon:'📦'});
+  z.push({n:'OUTBOUND DOCKS',x:mainX+Math.round(mainW*0.5),y:dockY,w:mainW-Math.round(mainW*0.5),h:dockD,color:'#00122a',border:'#0055bb',tc:'#4499ff',icon:'🚚'});
+  z.push({n:'STAGING OUT',x:mainX+Math.round(mainW*0.5),y:stY,w:mainW-Math.round(mainW*0.5),h:stageD,color:'#000c1a',border:'#003080',tc:'#3377cc',icon:'📤'});
+
+  const storeY=dockD+stageD;
+  const storeH=W-storeY-(D.inputs.expPct>0?Math.round(W*D.inputs.expPct):0);
+
+  // Build active zones list
+  const activeZones=[];
+  activeZones.push(D.zone.frozen);
+  if(en.chill) activeZones.push(D.zone.chill);
+  if(en.ctrl)  activeZones.push(D.zone.ctrl);
+  if(en.gen)   activeZones.push(D.zone.gen);
+
+  // Calculate proportional widths
+  const totalPals=activeZones.reduce((s,zn)=>s+zn.pallets,0);
+  let curX=mainX;
+  activeZones.forEach((zn,i)=>{
+    const frac=zn.pallets/totalPals;
+    const zw=i===activeZones.length-1?Math.round(mainX+mainW-curX):Math.round(mainW*frac);
+    const zx=curX;
+
+    // Ante-room strip (top of zone)
+    let zStorY=storeY;
+    let zStorH=storeH;
+    if(zn.anteEnabled && zn.anteArea>0){
+      const anteH=Math.max(4,Math.round(zn.anteArea/zw));
+      z.push({n:`ANTE-ROOM\n${zn.anteTemp}°C / ${zn.anteRh}% RH`,x:zx,y:storeY,w:zw,h:anteH,
+        color:'#1e0a3a',border:'#9955ff',tc:'#cc99ff',icon:'🚪',anteRoom:true});
+      zStorY=storeY+anteH;
+      zStorH=storeH-anteH;
+    }
+
+    // Main zone
+    z.push({n:zn.name,x:zx,y:zStorY,w:zw,h:zStorH,color:zn.color,border:zn.border,tc:zn.accent,main:true,zoneKey:zn.key,
+      info:`${zn.temp}°C | ${zn.rh}%RH | ${zn.net.toLocaleString()} pal`});
+
+    // Rack rows inside
+    const numRR=Math.min(Math.floor(zw/5.5),20);
+    for(let r=0;r<numRR;r++){
+      const rx=zx+2.5+r*5.5;
+      if(rx+4.5>zx+zw) break;
+      z.push({n:'',x:rx,y:zStorY+2,w:4.5,h:zStorH-4,color:`${zn.color}aa`,border:`${zn.border}55`,tc:'transparent',isRack:true,zk:zn.key});
+    }
+
+    curX=zx+zw;
+  });
+
+  // Expansion
+  if(D.inputs.expPct>0){
+    const expH=Math.round(W*D.inputs.expPct);
+    z.push({n:'EXPANSION RESERVE',x:mainX,y:W-expH,w:mainW,h:expH,
+      color:'rgba(255,107,53,0.07)',border:'#ff6b35',tc:'#ff6b35',dashed:true,icon:'📐'});
+  }
+
+  return z;
+}
+
+// ═══════════════════════════════════════════════
+//  2D CANVAS
+// ═══════════════════════════════════════════════
+function draw2d(){
+  c2=document.getElementById('canvas2d');
+  x2=c2.getContext('2d');
+  const wrap=document.getElementById('wrap2d');
+  c2.width=wrap.offsetWidth; c2.height=wrap.offsetHeight;
+  if(!D.zones) return;
+  const p=D.inputs;
+  x2.clearRect(0,0,c2.width,c2.height);
+  x2.fillStyle='#060d1a'; x2.fillRect(0,0,c2.width,c2.height);
+  x2.save();
+  x2.translate(cam2.ox+c2.width/2, cam2.oy+c2.height/2);
+  x2.scale(cam2.sc,cam2.sc);
+  const scX=(c2.width*0.78)/p.L, scY=(c2.height*0.78)/p.W;
+  const sc=Math.min(scX,scY);
+  const ox=-p.L*sc/2, oy=-p.W*sc/2;
+
+  // Grid
+  x2.strokeStyle='rgba(26,58,92,0.25)'; x2.lineWidth=0.5;
+  const grid=parseFloat(gs('i_grid'))||12;
+  for(let gx=0;gx<=p.L;gx+=grid){ x2.beginPath(); x2.moveTo(ox+gx*sc,oy); x2.lineTo(ox+gx*sc,oy+p.W*sc); x2.stroke(); }
+  for(let gy=0;gy<=p.W;gy+=grid){ x2.beginPath(); x2.moveTo(ox,oy+gy*sc); x2.lineTo(ox+p.L*sc,oy+gy*sc); x2.stroke(); }
+
+  // Draw zones
+  D.zones.forEach(z=>{
+    const zx=ox+z.x*sc, zy=oy+z.y*sc, zw=z.w*sc, zh=z.h*sc;
+    x2.fillStyle=z.color; x2.fillRect(zx,zy,zw,zh);
+    x2.strokeStyle=z.border; x2.lineWidth=z.isRack?0.7:1.5;
+    if(z.dashed) x2.setLineDash([5,4]); else x2.setLineDash([]);
+    x2.strokeRect(zx,zy,zw,zh); x2.setLineDash([]);
+    if(!z.isRack && z.n && zw>25 && zh>16){
+      x2.fillStyle=z.tc||'#fff';
+      const fs=Math.max(6,Math.min(11,zw*0.08));
+      x2.font=`700 ${fs}px Rajdhani,sans-serif`; x2.textAlign='center'; x2.textBaseline='middle';
+      const lines=z.n.split('\n');
+      lines.forEach((ln,li)=>{ x2.fillText(ln, zx+zw/2, zy+zh/2-(lines.length-1)*((fs+1)/2)+li*(fs+1)); });
+      if(z.info && zh>28){
+        x2.font=`${Math.max(5,fs-2)}px Share Tech Mono,monospace`;
+        x2.fillStyle='rgba(255,255,255,0.5)';
+        x2.fillText(z.info, zx+zw/2, zy+zh/2+(lines.length)*(fs+1)/2+2);
+      }
+    }
+  });
+
+  // Outer border
+  x2.strokeStyle='#00d4ff'; x2.lineWidth=2; x2.setLineDash([]); x2.strokeRect(ox,oy,p.L*sc,p.W*sc);
+
+  // North arrow
+  drawNA(x2, ox+p.L*sc+18, oy+18);
+  // Dim lines
+  drawDL(x2, ox, oy+p.W*sc+18, ox+p.L*sc, oy+p.W*sc+18, `${p.L}m`);
+  drawDL(x2, ox-18, oy, ox-18, oy+p.W*sc, `${p.W}m`, true);
+  // Scale bar
+  const bar=20*sc;
+  x2.strokeStyle='#00d4ff'; x2.lineWidth=1.5;
+  x2.beginPath(); x2.moveTo(ox+p.L*sc-8-bar,oy+p.W*sc+32); x2.lineTo(ox+p.L*sc-8,oy+p.W*sc+32); x2.stroke();
+  x2.fillStyle='#00d4ff'; x2.font='8px Share Tech Mono'; x2.textAlign='center';
+  x2.fillText('20m',ox+p.L*sc-8-bar/2,oy+p.W*sc+42);
+
+  x2.restore();
+  // Legend
+  const leg=document.getElementById('leg2d');
+  leg.style.display='flex';
+  const items=[
+    {c:'#0a1e50',b:'#0066cc',n:'Frozen Storage'},
+    {c:'#002840',b:'#009477',n:'Chill Storage'},
+    {c:'#0a2000',b:'#44aa00',n:'Controlled Ambient'},
+    {c:'#281800',b:'#aa8000',n:'General Ambient'},
+    {c:'#1e0a3a',b:'#9955ff',n:'Ante-Room'},
+    {c:'#003318',b:'#00aa55',n:'Inbound Dock'},
+    {c:'#00122a',b:'#0055bb',n:'Outbound Dock'},
+    {c:'#28180a',b:'#806030',n:'Office/Support'},
+    {c:'rgba(255,107,53,0.15)',b:'#ff6b35',n:'Expansion Reserve'},
+  ];
+  leg.innerHTML=items.filter(it=>it).map(it=>`<div class="li"><div class="lb" style="background:${it.c};border:1px solid ${it.b}"></div>${it.n}</div>`).join('');
+  document.getElementById('info2d').textContent=`${p.L}m × ${p.W}m | ${D.totals.totalNet.toLocaleString()} total pallet positions | ${Object.values(D.zones_enabled).filter(Boolean).length+1} temp zones`;
+}
+
+function drawNA(ctx,x,y){ctx.save();ctx.translate(x,y);ctx.strokeStyle='#ffd700';ctx.fillStyle='#ffd700';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(0,-13);ctx.lineTo(-5,4);ctx.lineTo(0,0);ctx.lineTo(5,4);ctx.closePath();ctx.fill();ctx.font='9px Rajdhani';ctx.textAlign='center';ctx.fillText('N',0,17);ctx.restore();}
+function drawDL(ctx,x1,y1,x2,y2,label,vert=false){ctx.strokeStyle='#4a7a9b';ctx.lineWidth=0.8;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();ctx.fillStyle='#7aa8cc';ctx.font='8px Share Tech Mono';ctx.textAlign='center';ctx.textBaseline='middle';if(!vert)ctx.fillText(label,(x1+x2)/2,y1+10);else{ctx.save();ctx.translate(x1-8,(y1+y2)/2);ctx.rotate(-Math.PI/2);ctx.fillText(label,0,0);ctx.restore();}}
+function zoom2d(f){cam2.sc*=f;draw2d();}
+function fit2d(){cam2.sc=1;cam2.ox=0;cam2.oy=0;draw2d();}
+function export2dPNG(){draw2d();const a=document.createElement('a');a.download='multi_zone_warehouse_2d.png';a.href=c2.toDataURL();a.click();}
+
+// 2D pan/zoom events
+document.addEventListener('DOMContentLoaded',()=>{
+  const cv=document.getElementById('canvas2d');
+  cv.addEventListener('mousedown',e=>{cam2.drag=true;cam2.lx=e.clientX;cam2.ly=e.clientY;});
+  cv.addEventListener('mousemove',e=>{if(!cam2.drag)return;cam2.ox+=e.clientX-cam2.lx;cam2.oy+=e.clientY-cam2.ly;cam2.lx=e.clientX;cam2.ly=e.clientY;draw2d();});
+  document.addEventListener('mouseup',()=>{cam2.drag=false;});
+  cv.addEventListener('wheel',e=>{e.preventDefault();zoom2d(e.deltaY<0?1.1:0.9);},{passive:false});
+  // Auto-calc area
+  ['i_length','i_width'].forEach(id=>{document.getElementById(id)?.addEventListener('input',()=>{document.getElementById('i_area').value=(gn('i_length')*gn('i_width'))||0;});});
+});
+
+// ═══════════════════════════════════════════════
+//  3D ENGINE
+// ═══════════════════════════════════════════════
+function initC3(){
+  c3=document.getElementById('canvas3d');
+  x3=c3.getContext('2d');
+  const w=document.getElementById('wrap3d');
+  c3.width=w.offsetWidth; c3.height=w.offsetHeight;
+  const cv=c3;
+  cv.onmousedown=e=>{cam3.drag=true;cam3.lx=e.clientX;cam3.ly=e.clientY;};
+  cv.onmousemove=e=>{if(!cam3.drag)return;cam3.ry+=(e.clientX-cam3.lx)*.4;cam3.rx+=(e.clientY-cam3.ly)*.25;cam3.lx=e.clientX;cam3.ly=e.clientY;draw3d();};
+  document.onmouseup=()=>cam3.drag=false;
+  cv.addEventListener('wheel',e=>{e.preventDefault();z3(e.deltaY<0?1.05:.95);},{passive:false});
+}
+function proj(x,y,z){
+  const rx=cam3.rx*Math.PI/180, ry=cam3.ry*Math.PI/180;
+  let x1=x*Math.cos(ry)-z*Math.sin(ry);
+  let z1=x*Math.sin(ry)+z*Math.cos(ry);
+  let y1=y*Math.cos(rx)-z1*Math.sin(rx);
+  let z2=y*Math.sin(rx)+z1*Math.cos(rx);
+  const f=900/(900+z2);
+  return{px:x1*f*cam3.sc+c3.width/2, py:y1*f*cam3.sc+c3.height/2};
+}
+function box3(x,y,z,w,h,d,ct,cf,cs,str,al=1){
+  const v=[proj(x,-y,z),proj(x+w,-y,z),proj(x+w,-y,z+d),proj(x,-y,z+d),
+           proj(x,-y-h,z),proj(x+w,-y-h,z),proj(x+w,-y-h,z+d),proj(x,-y-h,z+d)];
+  x3.globalAlpha=al;
+  [[4,5,6,7,ct],[0,1,5,4,cf],[1,2,6,5,cs]].forEach(([a,b,c,dd,col])=>{
+    x3.beginPath();[a,b,c,dd].forEach((i,j)=>j===0?x3.moveTo(v[i].px,v[i].py):x3.lineTo(v[i].px,v[i].py));
+    x3.closePath();x3.fillStyle=col;x3.fill();x3.strokeStyle=str||'rgba(0,180,255,0.2)';x3.lineWidth=.6;x3.stroke();
+  });
+  x3.globalAlpha=1;
+}
+function draw3d(){
+  if(!c3||!D.zones) return;
+  x3.clearRect(0,0,c3.width,c3.height);
+  x3.fillStyle='#060d1a';x3.fillRect(0,0,c3.width,c3.height);
+  const {L,W,H}=D.inputs;
+  const sc=Math.min(c3.width,c3.height)*0.0038*cam3.sc;
+  const ox=-L*sc/2, oz=-W*sc/2;
+
+  // Floor
+  const fp=[proj(ox,0,oz),proj(ox+L*sc,0,oz),proj(ox+L*sc,0,oz+W*sc),proj(ox,0,oz+W*sc)];
+  x3.beginPath();fp.forEach((v,i)=>i===0?x3.moveTo(v.px,v.py):x3.lineTo(v.px,v.py));
+  x3.closePath();x3.fillStyle='#0a1628';x3.fill();x3.strokeStyle='#1a3a5c';x3.lineWidth=1;x3.stroke();
+
+  // Floor grid
+  x3.globalAlpha=.15;x3.strokeStyle='#1a3a5c';x3.lineWidth=.4;
+  for(let i=0;i<=10;i++){
+    const gx=ox+(L*sc/10)*i;const[a,b]=[proj(gx,0,oz),proj(gx,0,oz+W*sc)];
+    x3.beginPath();x3.moveTo(a.px,a.py);x3.lineTo(b.px,b.py);x3.stroke();
+    const gz=oz+(W*sc/10)*i;const[c,d]=[proj(ox,0,gz),proj(ox+L*sc,0,gz)];
+    x3.beginPath();x3.moveTo(c.px,c.py);x3.lineTo(d.px,d.py);x3.stroke();
+  }
+  x3.globalAlpha=1;
+
+  // Zones as 3D boxes
+  const activeZK=['frozen','chill','ctrl','gen'].filter(k=>k==='frozen'||D.zones_enabled[k]);
+  const colMap={frozen:{t:'rgba(15,40,120,.8)',f:'rgba(10,30,100,.7)',s:'rgba(8,25,85,.65)',str:'rgba(0,100,255,.5)'},
+                chill:{t:'rgba(0,60,80,.75)',f:'rgba(0,48,65,.65)',s:'rgba(0,38,52,.6)',str:'rgba(0,150,180,.4)'},
+                ctrl:{t:'rgba(15,55,5,.75)',f:'rgba(12,42,4,.65)',s:'rgba(8,30,3,.6)',str:'rgba(60,180,0,.4)'},
+                gen:{t:'rgba(50,32,0,.75)',f:'rgba(38,24,0,.65)',s:'rgba(28,18,0,.6)',str:'rgba(160,120,0,.4)'}};
+
+  const totalPals=activeZK.reduce((s,k)=>s+D.zone[k].pallets,0);
+  let curX=ox+8*sc; // after support strip
+  const mainW=(L-8)*sc-Math.max(8,Math.round(L*D.inputs.offPct*2.5))*sc;
+  const suppW=Math.max(8,Math.round(L*D.inputs.offPct*2.5))*sc;
+  curX=ox+suppW+8*sc;
+  const storeZ=oz+(12+10)*sc;
+  const storeDepth=W*sc-(12+10)*sc-(D.inputs.expPct>0?W*sc*D.inputs.expPct:0);
+
+  activeZK.forEach(k=>{
+    const zn=D.zone[k]; const frac=zn.pallets/totalPals;
+    const zW=(ox+L*sc-curX-(D.inputs.expPct>0?8*sc:0))*frac;
+    const zH=D.inputs.H*sc*0.85;
+    const cl=colMap[k];
+
+    // Ante-room
+    if(zn.anteEnabled&&zn.anteArea>0){
+      const aD=Math.max(3,zn.anteArea/((zW/sc)))*sc;
+      box3(curX/sc,0,storeZ/sc,zW/sc,0.3,aD/sc,'rgba(50,20,100,.7)','rgba(40,15,80,.6)','rgba(30,10,60,.55)','rgba(150,80,255,.4)');
+    }
+    // Main zone box
+    box3(curX/sc,0,storeZ/sc,zW/sc,0.4,storeDepth/sc,cl.t,cl.f,cl.s,cl.str,.75);
+
+    // Racks inside
+    const nRacks=Math.min(Math.floor(zW/(5.5*sc)),12);
+    for(let r=0;r<nRacks;r++){
+      const rx=(curX+2.5*sc+r*5.5*sc)/sc;
+      if(rx+(4*sc/sc)>(curX+zW)/sc) break;
+      const rH=zn.rackH;
+      box3(rx,0,(storeZ+2*sc)/sc,.15,rH,(storeDepth-4*sc)/sc,cl.str,cl.str,cl.str,'rgba(0,200,255,.3)',.9);
+      for(let lv=1;lv<=Math.min(zn.levels,6);lv++){
+        const ly=(D.inputs.H/1000*(palletH(D.inputs.palsize)+0.15))*lv*0.55;
+        box3(rx-2,ly,(storeZ+2*sc)/sc,5,.1,(storeDepth-4*sc)/sc,cl.str,cl.str,cl.str,'rgba(0,200,255,.15)',.6);
+      }
+    }
+    curX+=zW;
+  });
+
+  // Support strip (office)
+  const suppX=ox;
+  box3(suppX/sc,0,oz+0,(Math.max(8,Math.round(L*D.inputs.offPct*2.5))+8)/sc,H*0.35,W,'rgba(50,30,5,.7)','rgba(38,22,3,.6)','rgba(28,16,2,.55)','rgba(180,120,0,.4)',.85);
+
+  // Docks
+  box3(curX/sc-mainW/sc+suppW/sc/1,0,oz,.35,3,10,'rgba(0,80,40,.8)','rgba(0,60,30,.7)','rgba(0,48,24,.65)','rgba(0,200,80,.4)',.85);
+
+  // Outer wireframe
+  x3.globalAlpha=.25;x3.strokeStyle='#00d4ff';x3.lineWidth=1.2;
+  [[ox,0,oz],[ox+L*sc,0,oz],[ox+L*sc,0,oz+W*sc],[ox,0,oz+W*sc]].forEach((c,i,arr)=>{
+    const n=arr[(i+1)%4];
+    const [a,b,a2,b2]=[proj(...c),proj(...n),proj(c[0],-H*sc,c[2]),proj(n[0],-H*sc,n[2])];
+    x3.beginPath();x3.moveTo(a.px,a.py);x3.lineTo(b.px,b.py);x3.stroke();
+    x3.beginPath();x3.moveTo(a2.px,a2.py);x3.lineTo(b2.px,b2.py);x3.stroke();
+    x3.beginPath();x3.moveTo(a.px,a.py);x3.lineTo(a2.px,a2.py);x3.stroke();
+  });
+  x3.globalAlpha=1;
+  document.getElementById('info3d').textContent=`${D.inputs.L}m×${D.inputs.W}m×${D.inputs.H}m | ${D.totals.totalNet.toLocaleString()} pallets | ${Object.keys(D.zone).filter(k=>k==='frozen'||D.zones_enabled[k]).length} zones | Drag to rotate`;
+}
+function r3(dy,dx){cam3.ry+=dy;cam3.rx+=dx;draw3d();}
+function z3(f){cam3.sc*=f;draw3d();}
+function rst3(){cam3.rx=22;cam3.ry=-38;cam3.sc=1;draw3d();}
+function tog3anim(){
+  anim3=!anim3;document.getElementById('b3a').textContent=anim3?'⏸':'▶';
+  if(anim3){(function loop(){if(!anim3)return;cam3.ry+=.4;draw3d();atimer=requestAnimationFrame(loop);})();}
+  else if(atimer) cancelAnimationFrame(atimer);
+}
+
+// ═══════════════════════════════════════════════
+//  RESULTS / KPI
+// ═══════════════════════════════════════════════
+function kc(label,val,unit,sub,cls){return `<div class="kcard kc-${cls}"><div class="klabel">${label}</div><div class="kval">${val}<span>${unit}</span></div><div class="ksub">${sub}</div></div>`;}
+function prBar(label,pct,col){return `<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;margin-bottom:3px"><span style="color:var(--text2)">${label}</span><span style="color:${col}">${pct}%</span></div><div class="prbar"><div class="prfill" style="width:${pct}%;background:${col}"></div></div></div>`;}
+
+function renderResults(){
+  const el=document.getElementById('res-content');
+  const zk=['frozen','chill','ctrl','gen'];
+  const activeZ=zk.filter(k=>k==='frozen'||D.zones_enabled[k]);
+  const {totalNet,totalPals}=D.totals;
+  const {totalRef,annualKWh,energyInt}=D.ref;
+  const {totalCapex,annualOpex}=D.capex;
+  const {totalDocks,inDocks,outDocks}=D.docks;
+  const {totalMHE,freezerRT,chillRT,dockCB,palJacks,chargers}=D.mhe;
+
+  const zoneCards=activeZ.map(k=>{
+    const zn=D.zone[k];
+    const colMap={frozen:'#4daaff',chill:'#00e6c0',ctrl:'#aaff44',gen:'#ffd700'};
+    const bdrMap={frozen:'#0066cc',chill:'#009477',ctrl:'#44aa00',gen:'#aa8000'};
+    return `<div class="zsc" style="border-left-color:${bdrMap[k]}">
+      <div class="zsc-name" style="color:${colMap[k]}">${zn.name}</div>
+      <div class="zsc-cond" style="color:var(--text3)">${zn.temp}°C | ${zn.rh}% RH | ${RACKS[zn.rack]?.name||zn.rack}</div>
+      <div class="zsc-row"><span class="zsc-k">Required Pallets</span><span class="zsc-v">${zn.pallets.toLocaleString()}</span></div>
+      <div class="zsc-row"><span class="zsc-k">Net Positions</span><span class="zsc-v" style="color:${colMap[k]}">${zn.net.toLocaleString()}</span></div>
+      <div class="zsc-row"><span class="zsc-k">Storage Area</span><span class="zsc-v">${Math.round(zn.area).toLocaleString()} m²</span></div>
+      <div class="zsc-row"><span class="zsc-k">Rack Levels</span><span class="zsc-v">${zn.levels} levels @ ${zn.rackH.toFixed(1)}m</span></div>
+      <div class="zsc-row"><span class="zsc-k">Strategy</span><span class="zsc-v">${zn.strategy}</span></div>
+      ${zn.anteEnabled?`<div class="zsc-row"><span class="zsc-k">Ante-Room</span><span class="zsc-v" style="color:#cc99ff">✓ ${zn.anteTemp}°C / ${zn.anteRh}%RH</span></div>`:''}
+      ${zn.blastEnabled?`<div class="zsc-row"><span class="zsc-k">Blast Cell</span><span class="zsc-v" style="color:#4daaff">✓ Included</span></div>`:''}
+    </div>`;
+  }).join('');
+
+  el.innerHTML=`
+    <div class="stitle">📊 Overview KPIs</div>
+    <div class="kgrid">
+      ${kc('TOTAL PALLET POSITIONS',totalNet.toLocaleString(),'pos',`Required: ${totalPals.toLocaleString()}`,'blue')}
+      ${kc('ACTIVE TEMPERATURE ZONES',activeZ.length,'zones',activeZ.map(k=>D.zone[k].temp+'°C').join(' | '),'teal')}
+      ${kc('TOTAL FLOOR AREA',Math.round(D.inputs.totalArea).toLocaleString(),'m²',`${D.inputs.L}m × ${D.inputs.W}m`,'blue')}
+      ${kc('TOTAL DOCKS',totalDocks,'doors',`In: ${inDocks} | Out: ${outDocks}`,'green')}
+      ${kc('MHE FLEET',totalMHE,'units',`Freezer RT:${freezerRT} | Chill RT:${chillRT} | CB:${dockCB} | PJ:${palJacks}`,'green')}
+      ${kc('REFRIG CAPACITY',totalRef.toLocaleString(),'kW','Multi-zone installed','purple')}
+      ${kc('ANNUAL ENERGY',Math.round(annualKWh/1000).toLocaleString(),'MWh/yr',`Intensity: ${energyInt} kWh/m³`,'orange')}
+      ${kc('TOTAL CAPEX','$'+Math.round(totalCapex/1e6).toFixed(2)+'M','','incl. ante-rooms & humidity','yellow')}
+      ${kc('ANNUAL OPEX','$'+Math.round(annualOpex/1000)+'k','/yr','Energy + maintenance est.','orange')}
+    </div>
+
+    <div class="stitle">🌡 Zone-by-Zone Summary</div>
+    <div class="zone-sum-grid">${zoneCards}</div>
+
+    <div class="stitle">🗄 Racking Configuration by Zone</div>
+    <table class="dt">
+      <thead><tr><th>Zone</th><th>System</th><th>Levels</th><th>Height</th><th>Aisle W</th><th>Density</th><th>Selectivity</th><th>Pallets</th></tr></thead>
+      <tbody>${activeZ.map(k=>{const z=D.zone[k];const cm={frozen:'hi',chill:'pu',ctrl:'',gen:'wi'};return `<tr><td style="color:${({frozen:'#4daaff',chill:'#00e6c0',ctrl:'#aaff44',gen:'#ffd700'})[k]}">${z.name}</td><td>${RACKS[z.rack]?.name||z.rack}</td><td class="${cm[k]}">${z.levels}</td><td>${z.rackH.toFixed(1)}m</td><td>${z.rc.aw}m</td><td class="${cm[k]}">${z.rc.den}%</td><td>${Math.round(z.rc.sel*100)}%</td><td class="${cm[k]}">${z.net.toLocaleString()}</td></tr>`;}).join('')}</tbody>
+    </table>
+
+    <div class="stitle">🚪 Ante-Room Schedule</div>
+    <table class="dt">
+      <thead><tr><th>Zone</th><th>Ante-Room</th><th>Ante Temp</th><th>Ante RH</th><th>Area (m²)</th><th>Rationale</th></tr></thead>
+      <tbody>
+        ${activeZ.map(k=>{const z=D.zone[k];return z.anteEnabled?`<tr><td style="color:${{frozen:'#4daaff',chill:'#00e6c0',ctrl:'#aaff44',gen:'#ffd700'}[k]}">${z.name}</td><td class="pu">✓ Enabled</td><td>${z.anteTemp||'—'}°C</td><td>${z.anteRh||'—'}% RH</td><td>${Math.round(z.anteArea)}</td><td style="font-size:9px;color:var(--text3)">Thermal buffer / condensation control</td></tr>`:`<tr><td style="color:var(--text3)">${z.name}</td><td style="color:var(--text3)">Not Required</td><td colspan="4" style="color:var(--text3)">—</td></tr>`;}).join('')}
+        <tr style="border-top:1px solid var(--accent)"><td><strong>TOTAL</strong></td><td colspan="3"></td><td class="hi">${Math.round(D.support.anteTotal)}</td><td></td></tr>
+      </tbody>
+    </table>
+
+    <div class="stitle">🌡 Humidity Control Systems</div>
+    <table class="dt">
+      <thead><tr><th>Zone</th><th>Temp</th><th>Target RH</th><th>System</th><th>Control</th></tr></thead>
+      <tbody>
+        <tr><td style="color:#4daaff">Frozen Storage</td><td>${D.zone.frozen.temp}°C</td><td>${D.zone.frozen.rh}% RH</td><td>Evaporator dehumidification</td><td>Auto — Defrost cycles</td></tr>
+        ${D.zones_enabled.chill?`<tr><td style="color:#00e6c0">Chill Storage</td><td>${D.zone.chill.temp}°C</td><td>${D.zone.chill.rh}% RH</td><td>DX cooling + humidification</td><td>Auto — PID controlled</td></tr>`:''}
+        ${D.zones_enabled.ctrl?`<tr><td style="color:#aaff44">Controlled Ambient</td><td>${D.zone.ctrl.temp}°C</td><td>${D.zone.ctrl.rh}% RH</td><td>${D.zone.ctrl.humActive?'Active HVAC + dehumidifier':'Passive ventilation'}</td><td>${D.zone.ctrl.humActive?'Auto — BMS controlled':'Monitored only'}</td></tr>`:''}
+        ${D.zones_enabled.gen?`<tr><td style="color:#ffd700">General Ambient</td><td>${D.zone.gen.temp}°C</td><td>≤${D.zone.gen.rh}% RH</td><td>Natural ventilation + monitor</td><td>Passive</td></tr>`:''}
+      </tbody>
+    </table>
+
+    <div class="stitle">⚡ Refrigeration Load by Zone</div>
+    <table class="dt">
+      <thead><tr><th>Source</th><th>kW</th><th>% Total</th></tr></thead>
+      <tbody>
+        <tr><td>Frozen Zone Transmission + Ante</td><td class="hi">${Math.round(D.ref.refFrozen)}</td><td>${((D.ref.refFrozen/totalRef)*100).toFixed(1)}%</td></tr>
+        ${D.zones_enabled.chill?`<tr><td>Chill Zone Transmission + Ante</td><td class="pu">${Math.round(D.ref.refChill)}</td><td>${((D.ref.refChill/totalRef)*100).toFixed(1)}%</td></tr>`:''}
+        ${D.zones_enabled.ctrl?`<tr><td>Controlled Ambient HVAC</td><td>${Math.round(D.ref.refCtrl)}</td><td>${((D.ref.refCtrl/totalRef)*100).toFixed(1)}%</td></tr>`:''}
+        <tr><td>Infiltration (all docks/doors)</td><td>${Math.round(D.ref.refInfilt)}</td><td>${((D.ref.refInfilt/totalRef)*100).toFixed(1)}%</td></tr>
+        <tr><td>MHE Heat Rejection</td><td>${Math.round(D.ref.refMHE)}</td><td>${((D.ref.refMHE/totalRef)*100).toFixed(1)}%</td></tr>
+        <tr><td>Lighting</td><td>${Math.round(D.ref.refLight)}</td><td>${((D.ref.refLight/totalRef)*100).toFixed(1)}%</td></tr>
+        <tr style="border-top:2px solid var(--accent)"><td><strong>INSTALLED CAPACITY</strong></td><td class="hi">${totalRef.toLocaleString()} kW</td><td>100%</td></tr>
+        <tr><td>Annual Consumption</td><td class="hi">${(annualKWh/1000).toFixed(0)} MWh/yr</td><td></td></tr>
+        <tr><td>CO₂ Equivalent</td><td class="wi">${(annualKWh*0.00042).toFixed(0)} t/yr</td><td></td></tr>
+      </tbody>
+    </table>
+
+    <div class="stitle">📈 Utilization Bars</div>
+    ${prBar('Frozen Zone Target Occupancy',85,'#4daaff')}
+    ${D.zones_enabled.chill?prBar('Chill Zone Target Occupancy',88,'#00e6c0'):''}
+    ${D.zones_enabled.ctrl?prBar('Controlled Ambient Occupancy',82,'#aaff44'):''}
+    ${D.zones_enabled.gen?prBar('General Ambient Occupancy',80,'#ffd700'):''}
+    ${prBar('Dock Utilization',Math.min(90,Math.round((D.inputs.inpd+D.inputs.outpd)/(totalDocks*18*D.inputs.opHrs)*100)),'#00ff88')}
+    ${prBar('MHE Fleet Utilization',Math.min(85,Math.round((D.inputs.inpd+D.inputs.outpd)/(totalMHE*12*D.inputs.opHrs)*100)),'#ff6b35')}
+    <div style="height:30px"></div>
+  `;
+}
+
+// ═══════════════════════════════════════════════
+//  SCENARIOS
+// ═══════════════════════════════════════════════
+function renderScenarios(){
+  const el=document.getElementById('sc-content');
+  const {totalCapex,annualOpex}=D.capex;
+  const scenarios=[
+    {name:'HIGH DENSITY',icon:'🏢',tag:'Max storage per m²',rec:false,
+     rack:'Drive-In / Shuttle all zones',pos:Math.round(D.totals.totalNet*1.28),mhe:Math.round(D.mhe.totalMHE*.8),
+     tp:'Moderate',capex:'$'+Math.round(totalCapex*.93/1e6).toFixed(1)+'M',opex:'$'+Math.round(annualOpex*.88/1e3)+'k/yr',
+     energy:'Lower',ante:'Selective where critical',note:'Best for long-stay inventory, low SKU variety, seasonal stock-pile'},
+    {name:'BALANCED',icon:'⚖️',tag:'Optimised multi-zone',rec:true,
+     rack:'Mixed per zone spec',pos:D.totals.totalNet,mhe:D.mhe.totalMHE,
+     tp:'High',capex:'$'+Math.round(totalCapex/1e6).toFixed(1)+'M',opex:'$'+Math.round(annualOpex/1e3)+'k/yr',
+     energy:'Medium',ante:'Full ante-rooms as designed',note:'Best overall for mixed-temp multi-zone food logistics'},
+    {name:'HIGH THROUGHPUT',icon:'⚡',tag:'Maximum pallet moves',rec:false,
+     rack:'Selective / VNA all zones',pos:Math.round(D.totals.totalNet*.78),mhe:Math.round(D.mhe.totalMHE*1.45),
+     tp:'Maximum',capex:'$'+Math.round(totalCapex*1.15/1e6).toFixed(1)+'M',opex:'$'+Math.round(annualOpex*1.18/1e3)+'k/yr',
+     energy:'Higher',ante:'Wider ante-rooms at all interfaces',note:'Best for high-velocity e-commerce cold chain, rapid turnaround'},
+  ];
+  el.innerHTML=`<div style="padding:18px">
+    <div class="stitle">🔀 Design Scenario Comparison</div>
+    <div class="sc-grid">${scenarios.map(s=>`<div class="scard${s.rec?' rec':''}">
+      <div class="sc-badge">★ RECOMMENDED</div>
+      <div style="font-size:30px;margin-bottom:5px">${s.icon}</div>
+      <div class="sc-nm">${s.name}</div>
+      <div class="sc-tg">${s.tag}</div>
+      <div class="sc-m"><span class="sc-mk">Racking</span><span class="sc-mv">${s.rack}</span></div>
+      <div class="sc-m"><span class="sc-mk">Pallet Positions</span><span class="sc-mv${s.rec?' g':''}">${s.pos.toLocaleString()}</span></div>
+      <div class="sc-m"><span class="sc-mk">MHE Fleet</span><span class="sc-mv">${s.mhe} units</span></div>
+      <div class="sc-m"><span class="sc-mk">Throughput</span><span class="sc-mv">${s.tp}</span></div>
+      <div class="sc-m"><span class="sc-mk">Est. CAPEX</span><span class="sc-mv${s.rec?' g':' w'}">${s.capex}</span></div>
+      <div class="sc-m"><span class="sc-mk">OPEX/yr</span><span class="sc-mv">${s.opex}</span></div>
+      <div class="sc-m"><span class="sc-mk">Energy</span><span class="sc-mv">${s.energy}</span></div>
+      <div class="sc-m"><span class="sc-mk">Ante-Rooms</span><span class="sc-mv">${s.ante}</span></div>
+      <div style="margin-top:12px;padding:8px;background:rgba(0,0,0,.3);border-radius:3px;font-family:var(--mono);font-size:9px;color:var(--text3);line-height:1.5">${s.note}</div>
+    </div>`).join('')}</div>
+
+    <div class="stitle" style="margin-top:0">💰 CAPEX Breakdown</div>
+    <table class="dt" style="max-width:600px">
+      <thead><tr><th>Component</th><th>USD</th><th>% Total</th></tr></thead>
+      <tbody>
+        <tr><td>Civil & Building Works</td><td class="hi">$${(D.capex.civilCapex/1e6).toFixed(2)}M</td><td>${((D.capex.civilCapex/D.capex.totalCapex)*100).toFixed(1)}%</td></tr>
+        <tr><td>Refrigeration Plant (Multi-Zone)</td><td class="hi">$${(D.capex.refCapex/1e6).toFixed(2)}M</td><td>${((D.capex.refCapex/D.capex.totalCapex)*100).toFixed(1)}%</td></tr>
+        <tr><td>Racking Systems (All Zones)</td><td class="hi">$${(D.capex.rackCapex/1e6).toFixed(2)}M</td><td>${((D.capex.rackCapex/D.capex.totalCapex)*100).toFixed(1)}%</td></tr>
+        <tr><td>MHE Fleet</td><td class="hi">$${(D.capex.mheCapex/1e6).toFixed(2)}M</td><td>${((D.capex.mheCapex/D.capex.totalCapex)*100).toFixed(1)}%</td></tr>
+        <tr><td>Ante-Rooms & Airlocks</td><td class="pu">$${(D.capex.anteCapex/1e6).toFixed(2)}M</td><td>${((D.capex.anteCapex/D.capex.totalCapex)*100).toFixed(1)}%</td></tr>
+        ${D.capex.humCapex>0?`<tr><td>Humidity Control Systems</td><td class="pu">$${(D.capex.humCapex/1e6).toFixed(2)}M</td><td>${((D.capex.humCapex/D.capex.totalCapex)*100).toFixed(1)}%</td></tr>`:''}
+        <tr style="border-top:2px solid var(--accent2)"><td><strong>TOTAL PROJECT CAPEX</strong></td><td class="hi" style="color:var(--accent2)">$${(D.capex.totalCapex/1e6).toFixed(2)}M</td><td>100%</td></tr>
+        <tr><td>Per Net Pallet Position</td><td>$${Math.round(D.capex.totalCapex/D.totals.totalNet).toLocaleString()}</td><td>industry benchmark</td></tr>
+      </tbody>
+    </table>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════
+//  REPORT
+// ═══════════════════════════════════════════════
+function renderReport(){
+  const el=document.getElementById('rep-content');
+  const p=D.inputs; const date=new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'});
+  const activeZ=['frozen','chill','ctrl','gen'].filter(k=>k==='frozen'||D.zones_enabled[k]);
+  const zSummary=activeZ.map(k=>`${D.zone[k].name}: ${D.zone[k].pallets.toLocaleString()} pallets @ ${D.zone[k].temp}°C / ${D.zone[k].rh}% RH`).join('<br>• ');
+  el.innerHTML=`
+    <div class="ebtns">
+      <button class="ebtn" onclick="exportJSON()">⬇ JSON Export</button>
+      <button class="ebtn" onclick="exportCSV()">⬇ CSV Export</button>
+      <button class="ebtn" onclick="window.print()">🖨 Print</button>
+    </div>
+    <div class="rh1">MULTI-ZONE COLD STORE<br>DESIGN REPORT</div>
+    <div class="rmeta">Date: ${date} | FreezePlan Pro v3.0 | Facility: ${p.L}×${p.W}m (${Math.round(p.totalArea).toLocaleString()} m²)</div>
+
+    <div class="rh2">1. EXECUTIVE SUMMARY</div>
+    <p class="rp2">This report presents the engineering design for a ${Math.round(p.totalArea).toLocaleString()} m² multi-temperature cold store facility comprising ${activeZ.length} controlled temperature zones with a total capacity of <strong>${D.totals.totalNet.toLocaleString()} net pallet positions</strong> against a requirement of ${D.totals.totalPals.toLocaleString()} pallets. The facility operates at ${p.L}m × ${p.W}m footprint with ${p.H}m clear internal height.</p>
+    <p class="rp2"><strong>Zone Configuration:</strong><br>• ${zSummary}</p>
+    <p class="rp2">Ante-rooms are provided at all frozen and chill zone interfaces for thermal buffering and condensation management. The estimated project CAPEX is USD ${(D.capex.totalCapex/1e6).toFixed(2)}M with annual OPEX of USD ${Math.round(D.capex.annualOpex/1e3)}k.</p>
+
+    <div class="rh2">2. DESIGN BASIS</div>
+    <p class="rp2">• Building: ${p.L}m (L) × ${p.W}m (W) × ${p.H}m (H clear) | Column grid: ${gs('i_grid')}m<br>
+    • Pallet standard: ${p.palsize} mm | Max load: ${p.pweight}kg<br>
+    • Throughput: ${p.inpd} inbound + ${p.outpd} outbound pallets/day | ${p.trucks} trucks/day<br>
+    • Operations: ${p.opHrs}hrs/day | ${gs('i_shifts')} shifts<br>
+    • Insulation: Frozen zones 200mm PIR panels; Chill zones 150mm PIR; Ambient zones 100mm<br>
+    • Standards: ASHRAE 62.1, NFPA 13, EN 15512 (racking), PED (refrigeration), EN ISO 22000</p>
+
+    <div class="rh2">3. ZONE & ANTE-ROOM DESIGN</div>
+    ${activeZ.map(k=>{const z=D.zone[k];return `<p class="rp2"><strong>${z.name}</strong> — ${Math.round(z.area).toLocaleString()} m² | ${z.pallets.toLocaleString()} pallets | ${z.temp}°C / ${z.rh}% RH<br>
+    Racking: ${RACKS[z.rack]?.name||z.rack} | ${z.levels} levels | ${z.rackH.toFixed(1)}m rack height | ${z.strategy} strategy<br>
+    ${z.anteEnabled?`Ante-Room: ✓ ${Math.round(z.anteArea)} m² buffer zone at ${z.anteTemp}°C / ${z.anteRh}% RH with rapid-roll insulated doors`:'Ante-Room: Not specified for this zone'}</p>`;}).join('')}
+
+    <div class="rh2">4. HUMIDITY CONTROL</div>
+    <p class="rp2">Frozen zones rely on controlled evaporator coil temperatures and hot-gas defrost cycles to maintain ${D.zone.frozen.rh}% RH, preventing excessive ice formation on product while maintaining food safety. Chill zones use direct expansion cooling with optional steam/ultrasonic humidification to maintain high RH (${D.zones_enabled.chill?D.zone.chill.rh:90}% target) for fresh produce preservation. ${D.zones_enabled.ctrl&&D.zone.ctrl.humActive?`Controlled ambient zone uses active BMS-controlled HVAC with ${D.zone.ctrl.rh}% RH target via dehumidifier/humidifier pairs.`:''} All zones are equipped with continuous wireless temperature and humidity data loggers with HACCP alarm integration.</p>
+
+    <div class="rh2">5. DOCK & STAGING</div>
+    <p class="rp2">${D.docks.inDocks} inbound and ${D.docks.outDocks} outbound dock doors (${D.docks.totalDocks} total), each 2.5m × 3.0m with hydraulic levelers (±300mm), inflatable dock seals, and insulated sectional doors. Separate dock aprons for frozen/chill product to minimise cross-contamination risk. Dock vestibules (airlock lobbies) provided at all cold-zone entries.</p>
+
+    <div class="rh2">6. REFRIGERATION SYSTEM</div>
+    <p class="rp2">Total installed refrigeration: ${D.ref.totalRef.toLocaleString()} kW across ${activeZ.length} temperature zones. Frozen zones served by two-stage rack compressors with HFO refrigerant (R-448A). Chill zones served by dedicated single-stage systems. All systems feature EC fan evaporators, electronic expansion valves, and variable-speed compressors. Annual energy: ${(D.ref.annualKWh/1000).toFixed(0)} MWh at ${D.ref.energyInt} kWh/m³ intensity.</p>
+
+    <div class="rh2">7. MHE FLEET</div>
+    <p class="rp2">Fleet: ${D.mhe.freezerRT} freezer-rated reach trucks (Li-Ion 48V, −30°C rated heated cabs), ${D.mhe.chillRT} chill-zone reach trucks, ${D.mhe.dockCB} counterbalance forklifts, ${D.mhe.palJacks} electric pallet jacks. Battery derating of 22% applied for frozen zone operation. Charging room: ${D.mhe.chargers} charger bays with forced ventilation and hydrogen detection.</p>
+
+    <div class="rh2">8. SAFETY & COMPLIANCE</div>
+    <p class="rp2">• Fire egress ≤ 45m to exit (NFPA 101) | ESFR sprinklers throughout<br>
+    • Pedestrian segregation in all zones | Anti-slip epoxy floor finish<br>
+    • Frozen/chill zone entry PPE stations (insulated gloves, jackets) at all ante-rooms<br>
+    • BMS with HACCP alarm system, continuous logging, automated alert escalation<br>
+    • Emergency lighting: 3hr battery backup | Emergency stops every 30m on rack faces<br>
+    • Ice prevention: floor heating trace at all dock entries and ante-rooms</p>
+
+    <div class="rh2">9. EXPANSION</div>
+    <p class="rp2">The ${Math.round(D.support.expArea).toLocaleString()} m² expansion reserve (${Math.round(D.inputs.expPct*100)}% of GFA) is designed for seamless phase-2 extension. Structural elements, insulated panel walls, and refrigeration plant are pre-designed for future expansion without operational shutdown.</p>
+
+    <div style="height:40px"></div>`;
+}
+
+// ═══════════════════════════════════════════════
+//  EXPORTS
+// ═══════════════════════════════════════════════
+function exportJSON(){
+  const out={project:{date:new Date().toISOString(),tool:'FreezePlan Pro v3.0'},inputs:D.inputs,
+    zones:Object.fromEntries(Object.entries(D.zone).filter(([k])=>k==='frozen'||D.zones_enabled[k]).map(([k,z])=>[k,{name:z.name,pallets:z.pallets,netPositions:z.net,areaM2:Math.round(z.area),tempC:z.temp,rh:z.rh,racking:z.rack,levels:z.levels,anteRoom:z.anteEnabled}])),
+    totals:D.totals,docks:D.docks,mhe:D.mhe,ref:D.ref,capex:D.capex};
+  const blob=new Blob([JSON.stringify(out,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='multizone_warehouse.json';a.click();
+}
+function exportCSV(){
+  const zk=['frozen','chill','ctrl','gen'].filter(k=>k==='frozen'||D.zones_enabled[k]);
+  const rows=[['Zone','Pallets','Net Positions','Area m2','Temp C','RH %','Racking','Levels','Rack Height m','Ante-Room']];
+  zk.forEach(k=>{const z=D.zone[k];rows.push([z.name,z.pallets,z.net,Math.round(z.area),z.temp,z.rh,RACKS[z.rack]?.name||z.rack,z.levels,z.rackH.toFixed(1),z.anteEnabled?'Yes':'No']);});
+  const csv=rows.map(r=>r.join(',')).join('\n');
+  const blob=new Blob([csv],{type:'text/csv'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='multizone_zones.csv';a.click();
+}
+
+function updateBadges(){
+  const el=document.getElementById('hdr-badges');
+  const zk=['frozen','chill','ctrl','gen'];
+  const active=zk.filter(k=>k==='frozen'||D.zones_enabled[k]);
+  const bc={frozen:'b-frozen',chill:'b-chill',ctrl:'b-ctrl',gen:'b-gen'};
+  const bl={frozen:`FROZEN ${D.zone.frozen.temp}°C`,chill:`CHILL ${D.zone.chill.temp}°C`,ctrl:`CA ${D.zone.ctrl.temp}°C`,gen:`GEN ${D.zone.gen.temp}°C`};
+  el.innerHTML=active.map(k=>`<span class="badge ${bc[k]}">${bl[k]}</span>`).join('')+'<span class="badge b-eng">ISO 9001</span>';
+}
+
+// Resize
+window.addEventListener('resize',()=>{
+  if(document.getElementById('tab-layout2d').classList.contains('active')&&D.zones) draw2d();
+  if(document.getElementById('tab-layout3d').classList.contains('active')&&D.zones) draw3d();
+});
+</script>
+</body>
+</html>
